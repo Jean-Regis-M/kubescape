@@ -3,6 +3,7 @@ package printer
 import (
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -330,4 +331,47 @@ func TestJUnitPrinter_RBACSubjectInFileScan(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Contains(t, string(content), "sourcePath: rbac.yaml", "JUnit failure content must report binding's relative path for RBAC subject")
+}
+
+func TestJSONPrinter_RBACSubjectInFileScan(t *testing.T) {
+	session := singleRBACSubjectSession(t)
+	tmpFile, err := os.CreateTemp(t.TempDir(), "test_rbac_*.json")
+	require.NoError(t, err)
+	defer tmpFile.Close()
+
+	jp := NewJsonPrinter()
+	jp.writer = tmpFile
+	require.NoError(t, jp.ActionPrint(context.Background(), session, nil))
+
+	content, err := os.ReadFile(tmpFile.Name())
+	require.NoError(t, err)
+	var report struct {
+		Resources []struct {
+			Object struct {
+				Kind string `json:"kind"`
+			} `json:"object"`
+			Source *struct {
+				RelativePath string `json:"relativePath"`
+			} `json:"source"`
+		} `json:"resources"`
+	}
+	require.NoError(t, json.Unmarshal(content, &report))
+
+	found := false
+	for _, resource := range report.Resources {
+		if resource.Object.Kind != "ServiceAccount" {
+			continue
+		}
+		found = true
+		require.NotNil(t, resource.Source, "the subject must carry its binding's source")
+		require.Equal(t, "rbac.yaml", resource.Source.RelativePath)
+	}
+	require.True(t, found, "must find the RBAC subject in the JSON resources")
+}
+
+func TestResourceTable_RBACSubjectInFileScan(t *testing.T) {
+	out := renderResourceTable(t, singleRBACSubjectSession(t), false)
+
+	require.Contains(t, out, "Kind: ServiceAccount")
+	require.Contains(t, out, "Source: rbac.yaml", "the subject must report its binding's manifest")
 }

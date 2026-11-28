@@ -257,7 +257,8 @@ func writeConfigurationJSON(w io.Writer, opaSessionObj *cautils.OPASessionObj, i
 				s.raw("[")
 			}
 			resource := reporthandling.NewResourceIMetadata(obj)
-			if source, ok := opaSessionObj.ResourceSource[result.ResourceID]; ok {
+			source := reportedSource(opaSessionObj, result.ResourceID)
+			if _, ok := opaSessionObj.ResourceSource[result.ResourceID]; ok || source.RelativePath != "" {
 				resource.SetSource(&source)
 			}
 			s.separator(&firstResource)

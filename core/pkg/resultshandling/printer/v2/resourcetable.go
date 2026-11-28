@@ -69,7 +69,7 @@ func failedResourcesInPrintOrder(opaSessionObj *cautils.OPASessionObj) []scanned
 			continue
 		}
 
-		resourceSource := opaSessionObj.ResourceSource[resourceID]
+		resourceSource := reportedSource(opaSessionObj, resourceID)
 		relPath := resourceSource.RelativePath
 
 		var absPath string
@@ -107,10 +107,8 @@ func (prettyPrinter *PrettyPrinter) resourceTable(opaSessionObj *cautils.OPASess
 
 		fmt.Fprintf(prettyPrinter.writer, "\n%s\n", getSeparator("#"))
 
-		if source, ok := opaSessionObj.ResourceSource[resourceID]; ok {
-			if srcPath := BestSourcePath(source); srcPath != "" {
-				fmt.Fprintf(prettyPrinter.writer, "Source: %s\n", sanitizeText(srcPath))
-			}
+		if srcPath := BestSourcePath(reportedSource(opaSessionObj, resourceID)); srcPath != "" {
+			fmt.Fprintf(prettyPrinter.writer, "Source: %s\n", sanitizeText(srcPath))
 		}
 		fmt.Fprintf(prettyPrinter.writer, "ApiVersion: %s\n", sanitizeText(resource.GetApiVersion()))
 		fmt.Fprintf(prettyPrinter.writer, "Kind: %s\n", sanitizeText(resource.GetKind()))
@@ -129,12 +127,8 @@ func (prettyPrinter *PrettyPrinter) resourceTable(opaSessionObj *cautils.OPASess
 		summaryTable.Style().Format.Header = text.FormatDefault
 		summaryTable.Style().Box = table.StyleBoxRounded
 
-		var source reporthandling.Source
-		var sourcePath string
-		if src, ok := opaSessionObj.ResourceSource[resourceID]; ok {
-			source = src
-			sourcePath = BestSourcePath(src)
-		}
+		source := reportedSource(opaSessionObj, resourceID)
+		sourcePath := BestSourcePath(source)
 		lineFor := prettyPrinter.pathLineResolver(opaSessionObj, &caches, scanned)
 		var patchFor func([]string) string
 		if source.FileType == reporthandling.SourceTypeKustomizeDirectory && source.KustomizeDirectoryName != "" {
